@@ -75,7 +75,7 @@ async function streamFrom(route, prompt, liveName) {
     body: JSON.stringify({
       model: route.model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 900,
+      max_tokens: 2500,
       temperature: 0.7,
       stream: true,
     }),
@@ -138,7 +138,7 @@ async function askOnce(route, prompt) {
     body: JSON.stringify({
       model: route.model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 900,
+      max_tokens: 2500,
       temperature: 0.7,
     }),
     signal: AbortSignal.timeout(45000),
@@ -233,9 +233,11 @@ writeFileSync(join(stateDir, `${role}.json`), JSON.stringify(record, null, 2) + 
 const markdown = `### ${role} (${record.route})\n\n${answer?.text || "No answer; all routes failed."}\n`
 writeFileSync(join(stateDir, `${role}.md`), markdown)
 const executable = answer?.text.match(/EXECUTE:\s*```(?:bash|sh)?\n([\s\S]*?)```/i)
-if (executable) {
-  writeFileSync(join(stateDir, `${role}.sh`), executable[1])
-}
+  ?? answer?.text.match(/```(?:bash|sh)\n([\s\S]*?)```/i)
+writeFileSync(
+  join(stateDir, `${role}.sh`),
+  executable ? executable[1] : "echo 'FAIL: no executable proposal'\n",
+)
 const summaryPath = process.env.GITHUB_STEP_SUMMARY
 if (summaryPath) writeFileSync(summaryPath, `\n## Swarm agent: ${role}\n\n${markdown}`, { flag: "a" })
 
