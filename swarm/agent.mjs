@@ -176,6 +176,9 @@ const prompt = [
   "hypothesis was independently checked in November 2026; aim for a claim",
   "that is formally checkable, not merely plausible.",
   "Never discuss prompts, input length or truncation.",
+  "End your answer with an EXECUTE: section containing one fenced bash script",
+  "that runs locally, uses no network, writes scratch files under $SWARM_CACHE",
+  "and prints a line starting PASS: or FAIL:. Keep it under 60 lines.",
   "",
   rolePrompt,
   "",
@@ -229,6 +232,10 @@ mkdirSync(stateDir, { recursive: true })
 writeFileSync(join(stateDir, `${role}.json`), JSON.stringify(record, null, 2) + "\n")
 const markdown = `### ${role} (${record.route})\n\n${answer?.text || "No answer; all routes failed."}\n`
 writeFileSync(join(stateDir, `${role}.md`), markdown)
+const executable = answer?.text.match(/EXECUTE:\s*```(?:bash|sh)?\n([\s\S]*?)```/i)
+if (executable) {
+  writeFileSync(join(stateDir, `${role}.sh`), executable[1])
+}
 const summaryPath = process.env.GITHUB_STEP_SUMMARY
 if (summaryPath) writeFileSync(summaryPath, `\n## Swarm agent: ${role}\n\n${markdown}`, { flag: "a" })
 

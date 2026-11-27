@@ -37,8 +37,82 @@ jobs:
           SWARM_API_TOKEN: ${{ secrets.PERPETUAL_TOKEN }}
         run: node swarm/agent.mjs "${{ matrix.role }}"
 
-  tick:
+      - name: Collect proposed experiments
+        uses: actions/upload-artifact@v4
+        with:
+          name: swarm-experiments
+          path: swarm-state/
+          if-no-files-found: ignore
+
+  verify:
     needs: agents
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out the swarm
+        uses: actions/checkout@v4
+
+      - name: Download proposed experiments
+        uses: actions/download-artifact@v4
+        with:
+          name: swarm-experiments
+          path: swarm-state
+
+      - name: Restore the small rolling cache
+        uses: actions/cache@v4
+        with:
+          path: .swarm-cache
+          key: swarm-verify-${{ github.run_id }}
+          restore-keys: swarm-verify-
+
+      - name: Execute every proposed experiment
+        run: |
+          mkdir -p swarm-results .swarm-cache
+          shopt -s nullglob
+          for script in swarm-state/*.sh; do
+            role="$(basename "$script" .sh)"
+            echo "running $role"
+            (
+              ulimit -v 500000 2>/dev/null || true
+              export SWARM_CACHE="$PWD/.swarm-cache"
+              export http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9
+              export no_proxy=localhost,127.0.0.1
+              timeout --signal=KILL 90 bash "$script"
+              echo "EXIT=$?"
+            ) >"swarm-results/$role.txt" 2>&1 || true
+          done
+          du -sh .swarm-cache swarm-results 2>/dev/null || true
+          for file in swarm-results/*.txt; do
+            echo "=== $(basename "$file") ==="
+            head -c 800 "$file"
+          done
+
+      - name: Publish verification results to the session bus
+        env:
+          GH_TOKEN: ${{ secrets.PERPETUAL_TOKEN }}
+        run: |
+          shopt -s nullglob
+          for file in swarm-results/*.txt; do
+            role="$(basename "$file" .txt)"
+            name="SWARM_VERIFY_$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+            value="$(head -c 2500 "$file")"
+            gh api -X PATCH "/repos/${GITHUB_REPOSITORY}/actions/variables/$name" \
+              -f name="$name" -f value="$value" 2>/dev/null \
+              || gh api -X POST "/repos/${GITHUB_REPOSITORY}/actions/variables" \
+                   -f name="$name" -f value="$value"
+          done
+
+      - name: Keep execution evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: swarm-verification
+          path: |
+            swarm-results/
+            .swarm-cache/
+          if-no-files-found: ignore
+
+  tick:
+    needs: [agents, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
