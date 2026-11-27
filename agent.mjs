@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
 
-const STATE_DIR = join(process.cwd(), "state")
+const STATE_DIR = process.env.PERPETUAL_STATE_DIR ?? join(process.cwd(), "state")
 mkdirSync(STATE_DIR, { recursive: true })
 
 const ROUTES = [
