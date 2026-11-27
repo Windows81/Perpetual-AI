@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T03:00:56.147Z",
+  "at": "2026-11-27T03:31:21.271Z",
   "role": "critic",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "No briefing or build plan has been shared, so there is nothing concrete to critique. The single most likely failure right now is proceeding to build without a defined plan at all: developers will make uncoordinated assumptions, produce incompatible interfaces, and waste cycles on rework.\n\nReason: absence of a shared plan means no contract on scope, interfaces, or success criteria, so every downstream decision becomes an implicit bet.\n\nSmallest change that removes it: publish a one-page briefing stating the goal, constraints, deliverables, and non-goals before any implementation starts.",
+  "text": "Claim: A single-bit fault in AES-128 round 9 reduces the key space below 2^32 using fewer than 1000 faulted ciphertexts. Flaw: this conflates a byte fault with a bit fault; published differential fault analysis already handles byte faults, while a random one-bit flip often yields weak or unusable differentials and may require key-dependent fault placement. Correction: test only random single-bit flips in the round-9 state, with public plaintext/ciphertext pairs and no key-guided faulting. Next action: simulate 10,000 random bit flips, run differential key filtering, and record the median surviving key count. Pass: median below 2^32. Fail: median at or above 2^32, or no measurable reduction. This tests the harder bit-level fault model instead of reusing byte-fault results.",
   "errors": []
 }

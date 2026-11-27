@@ -1,3 +1,9 @@
 ### scribe (kilo)
 
-Chosen idea: bootstrap with a minimal smoke test for the existing application. Next action: add tests/test_smoke.py that imports the app entrypoint and checks it initializes. Main risk: no shared context, so the test may target the wrong module. Verification command: pytest -q.
+Claim: Replacing dense NTT in a lattice ZKP verifier with 4-point sparse CRT evaluation reduces proof size by ≥12% while preserving 128-bit soundness for challenge sets avoiding roots modulo q.
+
+Experiment: Implement both verifiers at n=1024; compare proof bytes and rejection rates over 10,000 random instances.
+
+Main flaw: Sparse CRT may expose unmasked coefficient supports, breaking zero-knowledge if blinding degree is insufficient.
+
+Verification command: `python bench_zkp.py --n 1024 --trials 10000 --metric size,soundness` expecting ≥12% size reduction and zero soundness failures.
