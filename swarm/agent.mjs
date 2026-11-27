@@ -23,7 +23,7 @@ const ROUTES = [
 ]
 const ROLES = ["scout", "builder", "critic", "tester", "scribe"]
 const repo = process.env.GITHUB_REPOSITORY ?? "Windows81/Perpetual-AI"
-const token = process.env.GITHUB_TOKEN ?? ""
+const token = process.env.SWARM_API_TOKEN ?? process.env.GITHUB_TOKEN ?? ""
 const apiHeaders = {
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github+json",
@@ -131,7 +131,10 @@ const markdown = `### ${role} (${answer.route})\n\n${answer.text || "No answer; 
 writeFileSync(join(stateDir, `${role}.md`), markdown)
 const summaryPath = process.env.GITHUB_STEP_SUMMARY
 if (summaryPath) writeFileSync(summaryPath, `\n## Swarm agent: ${role}\n\n${markdown}`, { flag: "a" })
-if (answer.text) await setVariable(`SWARM_OUT_${roleUpper}`, answer.text)
+if (answer.text) {
+  const stored = await setVariable(`SWARM_OUT_${roleUpper}`, answer.text)
+  if (!stored) console.warn(`[swarm:${role}] could not store SWARM_OUT_${roleUpper}`)
+}
 
 if (role === "scribe" && answer.text) {
   const outputs = await Promise.all(ROLES.map((name) => getVariable(`SWARM_OUT_${name.toUpperCase()}`)))

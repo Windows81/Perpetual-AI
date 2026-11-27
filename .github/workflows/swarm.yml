@@ -34,6 +34,7 @@ jobs:
       - name: Think as ${{ matrix.role }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SWARM_API_TOKEN: ${{ secrets.PERPETUAL_TOKEN }}
         run: node swarm/agent.mjs "${{ matrix.role }}"
 
   tick:
