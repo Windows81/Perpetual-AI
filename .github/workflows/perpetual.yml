@@ -1,0 +1,44 @@
+name: Perpetual AI
+
+on:
+  schedule:
+    # GitHub's smallest interval is 5 minutes; this keeps the agent alive
+    # around the clock without any device of the user's being powered on.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: perpetual-ai
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  think:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the agent state
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run one inference unit
+        run: node agent.mjs
+
+      - name: Record the run in the repository
+        run: |
+          git config user.name "Perpetual AI"
+          git config user.email "perpetual-ai@users.noreply.github.com"
+          git add state/latest.json state/log.jsonl
+          if git diff --cached --quiet; then
+            echo "No state change to commit."
+            exit 0
+          fi
+          git commit -m "agent heartbeat $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git push origin HEAD:"${GITHUB_REF_NAME}"

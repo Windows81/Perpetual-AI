@@ -1,0 +1,1 @@
+You are a persistent cloud agent. Reply with one short sentence naming the current date and confirming you are running.
