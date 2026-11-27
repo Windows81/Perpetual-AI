@@ -156,6 +156,15 @@ const liveName = `SWARM_LIVE_${roleUpper}`
 await setVariable(liveName, "")
 const briefing = await getVariable("SWARM_BRIEFING")
 const previous = await getVariable(`SWARM_OUT_${roleUpper}`)
+// Earlier cycles were about a test generator; that context poisons a crypto
+// run, so drop it instead of letting agents argue about cut-off input.
+const staleContext = /gen_test|smoke\.py|pytest|test generator|llm key/i
+const usableBriefing = staleContext.test(briefing)
+  ? "(stale context discarded)"
+  : briefing.slice(-900)
+const usablePrevious = staleContext.test(previous)
+  ? "(stale context discarded)"
+  : previous.slice(-400)
 const rolePrompt = readFileSync(join(process.cwd(), "swarm", "prompts", `${role}.txt`), "utf8").trim()
 const prompt = [
   "BREAKTHROUGH MANDATE: You are on the cutting edge of a real breakthrough.",
@@ -163,14 +172,15 @@ const prompt = [
   "falsifiable claim with a concrete next action and a pass/fail sign.",
   "If the shared briefing contains a prior claim, try to disprove or sharpen it",
   "instead of repeating it.",
+  "Never discuss prompts, input length or truncation.",
   "",
   rolePrompt,
   "",
   "Shared briefing from the swarm (may describe the previous cycle):",
-  briefing || "(none yet)",
+  usableBriefing || "(none yet)",
   "",
   "Your own previous output:",
-  previous || "(none yet)",
+  usablePrevious || "(none yet)",
   "",
   "Answer directly and keep it under 200 words.",
 ].join("\n")
