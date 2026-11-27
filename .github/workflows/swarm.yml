@@ -65,6 +65,9 @@ jobs:
           key: swarm-verify-${{ github.run_id }}
           restore-keys: swarm-verify-
 
+      - name: Install the benchmark dependency
+        run: python3 -m pip install --break-system-packages -q cryptography
+
       - name: Execute every proposed experiment
         run: |
           mkdir -p swarm-results .swarm-cache
