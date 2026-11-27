@@ -3,7 +3,7 @@ name: Perpetual AI
 on:
   schedule:
     # Fallback only. The primary mechanism is the self-dispatch chain below.
-    - cron: '@hourly'
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 concurrency:
