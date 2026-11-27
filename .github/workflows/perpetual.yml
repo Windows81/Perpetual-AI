@@ -2,9 +2,8 @@ name: Perpetual AI
 
 on:
   schedule:
-    # GitHub's smallest interval is 5 minutes; this keeps the agent alive
-    # around the clock without any device of the user's being powered on.
-    - cron: '*/5 * * * *'
+    # Fallback only. The primary mechanism is the self-dispatch chain below.
+    - cron: '@hourly'
   workflow_dispatch:
 
 concurrency:
@@ -18,6 +17,8 @@ jobs:
   think:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      HAS_WORKFLOW_TOKEN: ${{ secrets.PERPETUAL_TOKEN != '' }}
     steps:
       - name: Check out the agent state
         uses: actions/checkout@v4
@@ -28,7 +29,9 @@ jobs:
           node-version: '20'
 
       - name: Run one inference unit
-        run: node agent.mjs
+        run: |
+          sleep 30
+          node agent.mjs
 
       - name: Record the run in the repository
         run: |
@@ -42,3 +45,22 @@ jobs:
           git commit -m "agent heartbeat $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git push origin HEAD:"${GITHUB_REF_NAME}"
+
+      - name: Queue the next run immediately
+        if: ${{ env.HAS_WORKFLOW_TOKEN == 'true' && hashFiles('control/stop') == '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PERPETUAL_TOKEN }}
+        run: |
+          gh api -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/perpetual.yml/dispatches" \
+            -f ref="${GITHUB_REF_NAME}"
+          echo "Queued the next run."
+
+      - name: Report that the stop switch is set
+        if: ${{ hashFiles('control/stop') == '' && env.HAS_WORKFLOW_TOKEN == 'false' }}
+        run: echo "No workflow token; hourly schedule remains as fallback."
+
+      - name: Stop switch is present
+        if: ${{ hashFiles('control/stop') != '' }}
+        run: echo "control/stop exists; the chain ends after this run."
