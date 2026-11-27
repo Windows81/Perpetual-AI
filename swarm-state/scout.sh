@@ -1,5 +1,11 @@
 set -euo pipefail
+: "${SWARM_CACHE:?SWARM_CACHE must be set}"
 mkdir -p "$SWARM_CACHE"
-out="$SWARM_CACHE/rsa_crt_fault.out"
-python3 swarm/benchmarks/rsa_crt_fault.py > "$out" 2>&1
-grep -q 'RECOVERED_FACTOR' "$out" && grep -q 'RECOVERED_D' "$out" && echo "PASS: RECOVERED_FACTOR and RECOVERED_D verified" || { cat "$out"; exit 1; }
+out="$SWARM_CACHE/rsa2048_fault.out"
+test -f swarm/benchmarks/rsa2048_fault.py
+python3 swarm/benchmarks/rsa2048_fault.py > "$out" 2>&1
+cat "$out"
+grep -q 'MODULUS_BITS=2048' "$out"
+grep -q 'RECOVERED_FACTOR_BITS=1024' "$out"
+grep -q 'RECOVERED_D_MATCH=True' "$out"
+echo 'PASS: required RSA-CRT Bellcore fault outputs verified'

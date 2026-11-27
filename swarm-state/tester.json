@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:43:00.378Z",
+  "at": "2026-11-27T04:49:27.052Z",
   "role": "tester",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "EXECUTE:\n```bash\nset -euo pipefail\nmkdir -p \"$SWARM_CACHE\"\nout=\"$SWARM_CACHE/rsa_crt_fault.out\"\npython3 swarm/benchmarks/rsa_crt_fault.py >\"$out\" 2>&1\nif grep -q 'RECOVERED_FACTOR' \"$out\" && grep -q 'RECOVERED_D' \"$out\" && grep -Eq '(^|[[:space:]])PASS([[:space:]]|$)' \"$out\"; then\n  cat \"$out\"\n  echo \"PASS: RSA-CRT Bellcore fault reproduced; factor and d recovered\"\nelse\n  cat \"$out\"\n  echo \"FAIL: missing RECOVERED_FACTOR/RECOVERED_D or final PASS\"\n  exit 1\nfi\n```",
+  "text": "The fixture itself is the deterministic reproduction; success is defined by its three emitted markers.\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -euo pipefail\nROOT=\"${SWARM_ROOT:-/app}\"\n[ -f \"$ROOT/swarm/benchmarks/rsa2048_fault.py\" ] || ROOT=\".\"\nmkdir -p \"$SWARM_CACHE\"\nout=\"$SWARM_CACHE/rsa2048_fault.out\"\npython3 \"$ROOT/swarm/benchmarks/rsa2048_fault.py\" > \"$out\" 2>&1\ncat \"$out\"\nif grep -q 'MODULUS_BITS=2048' \"$out\" && \\\n   grep -q 'RECOVERED_FACTOR_BITS=1024' \"$out\" && \\\n   grep -q 'RECOVERED_D_MATCH=True' \"$out\"; then\n  echo \"PASS: RSA-CRT Bellcore fault attack reproduced\"\nelse\n  echo \"FAIL: required attack markers missing\"\n  exit 1\nfi\n```",
   "errors": []
 }

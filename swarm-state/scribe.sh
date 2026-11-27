@@ -1,12 +1,11 @@
 set -euo pipefail
-mkdir -p "${SWARM_CACHE:?}/rsa_crt"
-out="${SWARM_CACHE}/rsa_crt/run.log"
-python3 swarm/benchmarks/rsa_crt_fault.py > "$out" 2>&1
-if grep -q 'RECOVERED_FACTOR' "$out" && grep -q 'RECOVERED_D' "$out"; then
-  tail -n 20 "$out"
-  echo "PASS: recovered factor and d"
+cache="${SWARM_CACHE:-/tmp/swarm_cache}"
+mkdir -p "$cache"
+out="$cache/rsa2048_fault.out"
+python swarm/benchmarks/rsa2048_fault.py | tee "$out"
+if grep -q 'MODULUS_BITS=2048' "$out" && grep -q 'RECOVERED_FACTOR_BITS=1024' "$out" && grep -q 'RECOVERED_D_MATCH=True' "$out"; then
+  echo "PASS: RSA-CRT Bellcore 2048-bit fault attack verified"
 else
-  cat "$out"
-  echo "FAIL: missing recovery markers"
+  echo "FAIL: required RSA-CRT fault metrics missing"
   exit 1
 fi

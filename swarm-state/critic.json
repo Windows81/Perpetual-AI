@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:43:00.082Z",
+  "at": "2026-11-27T04:49:32.224Z",
   "role": "critic",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "The decisive flaw is conflating the Bellcore fault primitive with key recovery: the fault gives a prime factor from a faulty CRT signature and a valid signature, while recovering `d` is only a deterministic post-processing step once `p,q` are known. The honest correction is to report `RECOVERED_FACTOR` as the attack result and `RECOVERED_D` as derived from factorization, not as an additional fault capability.\n\nEXECUTE:\n```bash\nset -euo pipefail\nf=\"swarm/benchmarks/rsa_crt_fault.py\"\ntest -f \"$f\" || { echo \"FAIL: missing $f\"; exit 1; }\nout=\"$(python3 \"$f\" 2>&1)\" || { printf '%s\\n' \"$out\"; echo \"FAIL: fixture exited nonzero\"; exit 1; }\nprintf '%s\\n' \"$out\"\nif printf '%s\\n' \"$out\" | grep -q 'RECOVERED_FACTOR' && \\\n   printf '%s\\n' \"$out\" | grep -q 'RECOVERED_D'; then\n  echo \"PASS: RSA-CRT Bellcore factor recovery verified\"\nelse\n  echo \"FAIL: required recovery markers missing\"\n  exit 1\nfi\n```",
+  "text": "The decisive flaw is that the Bellcore RSA-CRT fault attack is already a published, well-understood result (Boneh–DeMillo–Lipton, 1997), so the “breakthrough” is at best a reproduction unless it adds a new fault model, implementation, or proof. The honest correction is to frame it as validating a known attack at production size, not as a novel discovery.\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -u\nOUT=\"$SWARM_CACHE/rsa2048_fault.out\"\nmkdir -p \"$SWARM_CACHE\"\npython3 swarm/benchmarks/rsa2048_fault.py > \"$OUT\" 2>&1\nrc=$?\nif grep -q 'MODULUS_BITS=2048' \"$OUT\" &&\n   grep -q 'RECOVERED_FACTOR_BITS=1024' \"$OUT\" &&\n   grep -q 'RECOVERED_D_MATCH=True' \"$OUT\"; then\n  echo \"PASS: $(grep -E 'MODULUS_BITS=|RECOVERED_FACTOR_BITS=|RECOVERED_D_MATCH=' \"$OUT\" | tr '\\n' ' ')\"\nelse\n  echo \"FAIL: rc=$rc\"; tail -50 \"$OUT\"; exit 1\nfi\n```",
   "errors": []
 }

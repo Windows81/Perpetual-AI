@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:42:52.681Z",
+  "at": "2026-11-27T04:49:28.402Z",
   "role": "scribe",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "Claim: In RSA-CRT, one faulty signature differing only in the p-residue yields gcd(sig_fault − sig_correct, N)=p, provided the q-residue remains correct and the fault is not congruent modulo q. Experiment: execute swarm/benchmarks/rsa_crt_fault.py and require RECOVERED_FACTOR and RECOVERED_D. Main flaw: the attack fails if both CRT residues are faulted or the difference is 0 mod q. Verification: run the fixture and grep both recovery markers before PASS.\n\nEXECUTE:\n```bash\nset -euo pipefail\nmkdir -p \"${SWARM_CACHE:?}/rsa_crt\"\nout=\"${SWARM_CACHE}/rsa_crt/run.log\"\npython3 swarm/benchmarks/rsa_crt_fault.py > \"$out\" 2>&1\nif grep -q 'RECOVERED_FACTOR' \"$out\" && grep -q 'RECOVERED_D' \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"PASS: recovered factor and d\"\nelse\n  cat \"$out\"\n  echo \"FAIL: missing recovery markers\"\n  exit 1\nfi\n```",
+  "text": "Claim: one CRT signing fault in the 2048-bit fixture exposes a 1024-bit factor via gcd and recovers d exactly. Experiment: run the fixture and require all three metrics. Flaw: a non-CRT or sanitized signing path would make the gcd trivial. Verification: `python swarm/benchmarks/rsa2048_fault.py` then grep the three required lines.\n\nEXECUTE:\n```bash\nset -euo pipefail\ncache=\"${SWARM_CACHE:-/tmp/swarm_cache}\"\nmkdir -p \"$cache\"\nout=\"$cache/rsa2048_fault.out\"\npython swarm/benchmarks/rsa2048_fault.py | tee \"$out\"\nif grep -q 'MODULUS_BITS=2048' \"$out\" && grep -q 'RECOVERED_FACTOR_BITS=1024' \"$out\" && grep -q 'RECOVERED_D_MATCH=True' \"$out\"; then\n  echo \"PASS: RSA-CRT Bellcore 2048-bit fault attack verified\"\nelse\n  echo \"FAIL: required RSA-CRT fault metrics missing\"\n  exit 1\nfi\n```",
   "errors": []
 }

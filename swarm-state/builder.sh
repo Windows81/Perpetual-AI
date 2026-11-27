@@ -1,11 +1,10 @@
 set -euo pipefail
-mkdir -p "$SWARM_CACHE"
-out="$SWARM_CACHE/rsa_crt_fault.out"
-python3 swarm/benchmarks/rsa_crt_fault.py >"$out" 2>&1
-cat "$out"
-if grep -q 'RECOVERED_FACTOR' "$out" && grep -q 'RECOVERED_D' "$out"; then
-  echo "PASS: RSA-CRT Bellcore fault recovery markers found"
-else
-  echo "FAIL: missing RECOVERED_FACTOR or RECOVERED_D"
-  exit 1
-fi
+mkdir -p "${SWARM_CACHE:?}"
+fixture="swarm/benchmarks/rsa2048_fault.py"
+test -f "$fixture"
+out="$(python "$fixture")"
+printf '%s\n' "$out"
+printf '%s\n' "$out" | grep -q 'MODULUS_BITS=2048'
+printf '%s\n' "$out" | grep -q 'RECOVERED_FACTOR_BITS=1024'
+printf '%s\n' "$out" | grep -q 'RECOVERED_D_MATCH=True'
+echo "PASS: Bellcore CRT fault recovery verified"
