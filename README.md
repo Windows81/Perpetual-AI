@@ -1,10 +1,10 @@
 # Perpetual AI
 
 An AI agent that runs without the phone. A GitHub Actions run performs one
-inference, writes a heartbeat to this repository, then queues the next run
-immediately through the GitHub API. The chain repeats about once a minute on
-GitHub's servers, so the agent keeps working while the phone is off. An hourly
-cron is a fallback in case the chain is interrupted.
+inference, writes a heartbeat to this repository, waits about nine minutes,
+then queues the next run through the GitHub API. The chain repeats on GitHub's
+servers, so the agent keeps working while the phone is off. An hourly cron is a
+fallback in case the chain is interrupted.
 
 ## What is where
 

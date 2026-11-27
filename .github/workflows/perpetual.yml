@@ -16,9 +16,10 @@ permissions:
 jobs:
   think:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       HAS_WORKFLOW_TOKEN: ${{ secrets.PERPETUAL_TOKEN != '' }}
+      CADENCE_SECONDS: '510'
     steps:
       - name: Check out the agent state
         uses: actions/checkout@v4
@@ -29,9 +30,7 @@ jobs:
           node-version: '20'
 
       - name: Run one inference unit
-        run: |
-          sleep 30
-          node agent.mjs
+        run: node agent.mjs
 
       - name: Record the run in the repository
         run: |
@@ -45,6 +44,10 @@ jobs:
           git commit -m "agent heartbeat $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git push origin HEAD:"${GITHUB_REF_NAME}"
+
+      - name: Wait for the next nine-minute tick
+        if: ${{ env.HAS_WORKFLOW_TOKEN == 'true' && hashFiles('control/stop') == '' }}
+        run: sleep "$CADENCE_SECONDS"
 
       - name: Queue the next run immediately
         if: ${{ env.HAS_WORKFLOW_TOKEN == 'true' && hashFiles('control/stop') == '' }}
