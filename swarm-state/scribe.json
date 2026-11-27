@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:49:28.402Z",
+  "at": "2026-11-27T04:59:54.797Z",
   "role": "scribe",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "Claim: one CRT signing fault in the 2048-bit fixture exposes a 1024-bit factor via gcd and recovers d exactly. Experiment: run the fixture and require all three metrics. Flaw: a non-CRT or sanitized signing path would make the gcd trivial. Verification: `python swarm/benchmarks/rsa2048_fault.py` then grep the three required lines.\n\nEXECUTE:\n```bash\nset -euo pipefail\ncache=\"${SWARM_CACHE:-/tmp/swarm_cache}\"\nmkdir -p \"$cache\"\nout=\"$cache/rsa2048_fault.out\"\npython swarm/benchmarks/rsa2048_fault.py | tee \"$out\"\nif grep -q 'MODULUS_BITS=2048' \"$out\" && grep -q 'RECOVERED_FACTOR_BITS=1024' \"$out\" && grep -q 'RECOVERED_D_MATCH=True' \"$out\"; then\n  echo \"PASS: RSA-CRT Bellcore 2048-bit fault attack verified\"\nelse\n  echo \"FAIL: required RSA-CRT fault metrics missing\"\n  exit 1\nfi\n```",
+  "text": "Briefing:\n- Claim: The fixture recovers the DSS private key exactly when two signatures reuse one nonce k at P_BITS=2048, Q_BITS=256.\n- Experiment: Run swarm/benchmarks/dss_nonce_reuse.py and inspect its stdout markers.\n- Flaw: Nonce reuse makes the two signature equations jointly solvable for x; unique k defeats recovery.\n- Verify: Require P_BITS=2048, Q_BITS=256, RECOVERED_X_MATCH=True, then print PASS:.\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -u\nCACHE=\"${SWARM_CACHE:-/tmp/swarm_cache}\"\nmkdir -p \"$CACHE\"\nout=\"$CACHE/dss_nonce_reuse.out\"\nif python3 swarm/benchmarks/dss_nonce_reuse.py >\"$out\" 2>&1; then\n  if grep -q 'P_BITS=2048' \"$out\" && grep -q 'Q_BITS=256' \"$out\" && grep -q 'RECOVERED_X_MATCH=True' \"$out\"; then\n    echo \"PASS: DSS nonce-reuse recovery verified\"\n  else\n    echo \"FAIL: required markers missing\"\n    cat \"$out\"\n    exit 1\n  fi\nelse\n  echo \"FAIL: fixture exited non-zero\"\n  cat \"$out\"\n  exit 1\nfi\n```",
   "errors": []
 }

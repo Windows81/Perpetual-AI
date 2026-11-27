@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:49:27.052Z",
+  "at": "2026-11-27T05:00:00.231Z",
   "role": "tester",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "The fixture itself is the deterministic reproduction; success is defined by its three emitted markers.\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -euo pipefail\nROOT=\"${SWARM_ROOT:-/app}\"\n[ -f \"$ROOT/swarm/benchmarks/rsa2048_fault.py\" ] || ROOT=\".\"\nmkdir -p \"$SWARM_CACHE\"\nout=\"$SWARM_CACHE/rsa2048_fault.out\"\npython3 \"$ROOT/swarm/benchmarks/rsa2048_fault.py\" > \"$out\" 2>&1\ncat \"$out\"\nif grep -q 'MODULUS_BITS=2048' \"$out\" && \\\n   grep -q 'RECOVERED_FACTOR_BITS=1024' \"$out\" && \\\n   grep -q 'RECOVERED_D_MATCH=True' \"$out\"; then\n  echo \"PASS: RSA-CRT Bellcore fault attack reproduced\"\nelse\n  echo \"FAIL: required attack markers missing\"\n  exit 1\nfi\n```",
+  "text": "Run the local DSS nonce-reuse fixture, capture its output under `$SWARM_CACHE`, and require all three success markers before emitting `PASS:`.\n\n```bash\n#!/usr/bin/env bash\nset -u\nmkdir -p \"${SWARM_CACHE:?}\"\nout=\"$SWARM_CACHE/dss_nonce_reuse.out\"\nfixture=\"swarm/benchmarks/dss_nonce_reuse.py\"\nif [[ ! -f \"$fixture\" ]]; then\n  echo \"FAIL: missing fixture $fixture\"\n  exit 1\nfi\nif ! python3 \"$fixture\" >\"$out\" 2>&1; then\n  echo \"FAIL: fixture exited non-zero\"\n  cat \"$out\"\n  exit 1\nfi\nif grep -Fq 'P_BITS=2048' \"$out\" && grep -Fq 'Q_BITS=256' \"$out\" && grep -Fq 'RECOVERED_X_MATCH=True' \"$out\"; then\n  echo \"PASS: P_BITS=2048, Q_BITS=256, RECOVERED_X_MATCH=True\"\nelse\n  echo \"FAIL: required markers not all present\"\n  cat \"$out\"\n  exit 1\nfi\n```\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -u\nmkdir -p \"${SWARM_CACHE:?}\"\nout=\"$SWARM_CACHE/dss_nonce_reuse.out\"\nfixture=\"swarm/benchmarks/dss_nonce_reuse.py\"\nif [[ ! -f \"$fixture\" ]]; then\n  echo \"FAIL: missing fixture $fixture\"\n  exit 1\nfi\nif ! python3 \"$fixture\" >\"$out\" 2>&1; then\n  echo \"FAIL: fixture exited non-zero\"\n  cat \"$out\"\n  exit 1\nfi\nif grep -Fq 'P_BITS=2048' \"$out\" && grep -Fq 'Q_BITS=256' \"$out\" && grep -Fq 'RECOVERED_X_MATCH=True' \"$out\"; then\n  echo \"PASS: P_BITS=2048, Q_BITS=256, RECOVERED_X_MATCH=True\"\nelse\n  echo \"FAIL: required markers not all present\"\n  cat \"$out\"\n  exit 1\nfi\n```",
   "errors": []
 }

@@ -1,13 +1,19 @@
-#!/usr/bin/env bash
 set -u
-OUT="$SWARM_CACHE/rsa2048_fault.out"
 mkdir -p "$SWARM_CACHE"
-python3 swarm/benchmarks/rsa2048_fault.py > "$OUT" 2>&1
-rc=$?
-if grep -q 'MODULUS_BITS=2048' "$OUT" &&
-   grep -q 'RECOVERED_FACTOR_BITS=1024' "$OUT" &&
-   grep -q 'RECOVERED_D_MATCH=True' "$OUT"; then
-  echo "PASS: $(grep -E 'MODULUS_BITS=|RECOVERED_FACTOR_BITS=|RECOVERED_D_MATCH=' "$OUT" | tr '\n' ' ')"
+OUT="$SWARM_CACHE/dss_nonce_reuse.out"
+BENCH="$(find . -path '*swarm/benchmarks/dss_nonce_reuse.py' -type f | head -n 1)"
+if [ -z "$BENCH" ]; then
+  echo "FAIL: benchmark not found"
+  exit 1
+fi
+if python3 "$BENCH" >"$OUT" 2>&1; then
+  if grep -Fq 'P_BITS=2048' "$OUT" && grep -Fq 'Q_BITS=256' "$OUT" && grep -Fq 'RECOVERED_X_MATCH=True' "$OUT"; then
+    echo "PASS: DSS nonce-reuse recovery verified"
+  else
+    echo "FAIL: required markers missing"
+    cat "$OUT"
+  fi
 else
-  echo "FAIL: rc=$rc"; tail -50 "$OUT"; exit 1
+  echo "FAIL: benchmark exited non-zero"
+  cat "$OUT"
 fi

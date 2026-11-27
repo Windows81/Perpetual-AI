@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:49:24.361Z",
+  "at": "2026-11-27T05:00:07.139Z",
   "role": "builder",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "Novel claim: In RSA-CRT signing, a single corrupted CRT component makes the faulty signature \\(s'\\) satisfy \\(\\gcd(s'^e \\bmod N - m,\\, N)=p\\) or \\(q\\) with probability essentially 1, so a production-size recovery is just one big-integer gcd after one simulated fault; success is falsified if the reported recovered factor is not 1024 bits or \\(d\\) does not match.\n\n```bash\nset -euo pipefail\nmkdir -p \"${SWARM_CACHE:?}\"\nfixture=\"swarm/benchmarks/rsa2048_fault.py\"\ntest -f \"$fixture\"\nout=\"$(python \"$fixture\")\"\nprintf '%s\\n' \"$out\"\nprintf '%s\\n' \"$out\" | grep -q 'MODULUS_BITS=2048'\nprintf '%s\\n' \"$out\" | grep -q 'RECOVERED_FACTOR_BITS=1024'\nprintf '%s\\n' \"$out\" | grep -q 'RECOVERED_D_MATCH=True'\necho \"PASS: Bellcore CRT fault recovery verified\"\n```",
+  "text": "The reused DSS nonce makes the private key recoverable algebraically: with two signatures sharing `k`, solve `x = (s1*m2 - s2*m1) * inv(r*(s2-s1), q) mod q`. The production-size claim is that the fixture's 2048/256-bit path performs this recovery correctly and sets `RECOVERED_X_MATCH=True`.\n\nEXECUTE:\n```bash\nset -eu\nmkdir -p \"$SWARM_CACHE\"\npython - <<'PY' > \"$SWARM_CACHE/dss.out\" 2>&1\nimport runpy\np = \"swarm/benchmarks/dss_nonce_reuse.py\"\nns = runpy.run_path(p)\nif callable(ns.get(\"main\")):\n    ns[\"main\"]()\nfor key in (\"P_BITS\", \"Q_BITS\", \"RECOVERED_X_MATCH\"):\n    print(f\"{key}={ns.get(key)}\")\nPY\ncat \"$SWARM_CACHE/dss.out\"\ngrep -q 'P_BITS=2048' \"$SWARM_CACHE/dss.out\"\ngrep -q 'Q_BITS=256' \"$SWARM_CACHE/dss.out\"\ngrep -q 'RECOVERED_X_MATCH=True' \"$SWARM_CACHE/dss.out\"\necho \"PASS: P_BITS=2048 Q_BITS=256 RECOVERED_X_MATCH=True\"\n```",
   "errors": []
 }

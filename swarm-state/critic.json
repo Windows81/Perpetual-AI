@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T04:49:32.224Z",
+  "at": "2026-11-27T05:00:02.498Z",
   "role": "critic",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "The decisive flaw is that the Bellcore RSA-CRT fault attack is already a published, well-understood result (Boneh–DeMillo–Lipton, 1997), so the “breakthrough” is at best a reproduction unless it adds a new fault model, implementation, or proof. The honest correction is to frame it as validating a known attack at production size, not as a novel discovery.\n\nEXECUTE:\n```bash\n#!/usr/bin/env bash\nset -u\nOUT=\"$SWARM_CACHE/rsa2048_fault.out\"\nmkdir -p \"$SWARM_CACHE\"\npython3 swarm/benchmarks/rsa2048_fault.py > \"$OUT\" 2>&1\nrc=$?\nif grep -q 'MODULUS_BITS=2048' \"$OUT\" &&\n   grep -q 'RECOVERED_FACTOR_BITS=1024' \"$OUT\" &&\n   grep -q 'RECOVERED_D_MATCH=True' \"$OUT\"; then\n  echo \"PASS: $(grep -E 'MODULUS_BITS=|RECOVERED_FACTOR_BITS=|RECOVERED_D_MATCH=' \"$OUT\" | tr '\\n' ' ')\"\nelse\n  echo \"FAIL: rc=$rc\"; tail -50 \"$OUT\"; exit 1\nfi\n```",
+  "text": "Critic: The decisive flaw is novelty, not feasibility. Recovering a DSS private key from a reused nonce is a long-known algebraic attack once two signatures share `k` and their messages are known; it does not constitute a new cryptanalytic break. The smallest honest correction is to frame this as a threat-model demonstration of nonce-reuse failure, not a novel result. The computation is polynomial and needs no secret key material beyond the public signatures and messages.\n\nEXECUTE:\n```bash\nset -u\nmkdir -p \"$SWARM_CACHE\"\nOUT=\"$SWARM_CACHE/dss_nonce_reuse.out\"\nBENCH=\"$(find . -path '*swarm/benchmarks/dss_nonce_reuse.py' -type f | head -n 1)\"\nif [ -z \"$BENCH\" ]; then\n  echo \"FAIL: benchmark not found\"\n  exit 1\nfi\nif python3 \"$BENCH\" >\"$OUT\" 2>&1; then\n  if grep -Fq 'P_BITS=2048' \"$OUT\" && grep -Fq 'Q_BITS=256' \"$OUT\" && grep -Fq 'RECOVERED_X_MATCH=True' \"$OUT\"; then\n    echo \"PASS: DSS nonce-reuse recovery verified\"\n  else\n    echo \"FAIL: required markers missing\"\n    cat \"$OUT\"\n  fi\nelse\n  echo \"FAIL: benchmark exited non-zero\"\n  cat \"$OUT\"\nfi\n```",
   "errors": []
 }

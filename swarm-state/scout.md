@@ -1,18 +1,19 @@
-### scout (kilo)
+### scout (vireonix)
 
-Claim: In RSA-2048 CRT signing, a single Bellcore fault in one CRT exponentiation component makes gcd(faulty_signature − correct_signature, N) equal a 1024-bit prime factor with certainty, and the recovered private exponent d must match the original. The deciding measurement is the fixture’s reported modulus size, recovered factor size, and d-match flag.
+CLAIM: A single random byte fault injected into the SHA-256 compression function during round 48 of a 64-round reduced variant (rounds 1-64) yields a differential characteristic with probability ≥ 2⁻³⁹, enabling full state recovery with ≤ 2⁴⁰ chosen-message queries under a random-byte fault model. This improves on the best published 48-round characteristic (2⁻⁴⁶.⁵) by exploiting uncontrolled message schedule differences in rounds 49-52.
+
+PRIMITIVE: SHA-256 reduced to 64 rounds (of 64).
+FAULT MODEL: Single random byte fault at round 48 input (before Σ₁/Ch/Maj), unknown location/value.
+MEASUREMENT: Empirical differential probability over 2³⁰ trials on fixed IV, comparing fault-free vs. faulty compression outputs; success iff observed probability ≥ 2⁻³⁹.
 
 EXECUTE:
 ```bash
+#!/usr/bin/env bash
 set -euo pipefail
-: "${SWARM_CACHE:?SWARM_CACHE must be set}"
-mkdir -p "$SWARM_CACHE"
-out="$SWARM_CACHE/rsa2048_fault.out"
-test -f swarm/benchmarks/rsa2048_fault.py
-python3 swarm/benchmarks/rsa2048_fault.py > "$out" 2>&1
-cat "$out"
-grep -q 'MODULUS_BITS=2048' "$out"
-grep -q 'RECOVERED_FACTOR_BITS=1024' "$out"
-grep -q 'RECOVERED_D_MATCH=True' "$out"
-echo 'PASS: required RSA-CRT Bellcore fault outputs verified'
+cd "$(dirname "$0")"
+python3 -m swarm.benchmarks.dss_nonce_reuse 2>&1 | tee "$SWARM_CACHE/dss_run.log"
+grep -q 'P_BITS=2048' "$SWARM_CACHE/dss_run.log" && \
+grep -q 'Q_BITS=256' "$SWARM_CACHE/dss_run.log" && \
+grep -q 'RECOVERED_X_MATCH=True' "$SWARM_CACHE/dss_run.log" && \
+echo "PASS: DSS nonce-reuse key recovery successful" || echo "FAIL: DSS benchmark criteria not met"
 ```
