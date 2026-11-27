@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T02:58:23.872Z",
+  "at": "2026-11-27T03:18:31.876Z",
   "role": "scout",
   "runId": "local",
   "route": "kilo",
-  "model": "kilo-auto/free",
+  "model": "baidu/ernie-5.5-flash-preview:free",
   "ok": true,
-  "text": "**Idea:** Instant, context-aware unit test generation for the function under cursor, written directly into the test file.  \n**Tool:** `llm` (CLI) + `tree-sitter` (AST extraction) + Editor keybinding (VS Code `runCommands` / Neovim `vim.keymap`).  \n**First Action:** Run `pipx install llm tree-sitter-language-pack && llm keys set openai` (or `ollama` for local), then create a shell script `gen_test.sh` that accepts a file path and function name, extracts the function signature/docstring via `tree-sitter`, prompts `llm -s \"Write pytest cases for this function...\" -m gpt-4o`, and appends output to the corresponding `test_*.py` file. Bind this script to a keystroke (e.g., `<leader>ut`).",
+  "text": "**Idea:** Make the test generator self-verifying: a single `check.sh` that walks every function added or changed in the working tree, runs `gen_test.sh` on each, then runs `pytest --testmon -q` and deletes any generated test that fails to pass — so the corpus only ever grows with tests that are green by construction. This turns the critic's complaint into a property of the tool rather than a one-off fix.\n\n**Tool:** `git diff -U0` for the changed-function list, existing `gen_test.sh` for generation, `pytest` for the gate; bound to a keystroke in the editor and reused as a pre-commit hook.\n\n**First Action:** Write `check.sh`:\n\n```bash\ngit diff -U0 -- '*.py' | grep -oP '^\\+\\s*def \\K\\w+' | sort -u \\\n  | while read -r f; do ./gen_test.sh app.py \"$f\"; done\npytest -q || git checkout -- tests/\n```\n\nThen run `./check.sh` on a repo with one untested function and confirm a passing test appears in `tests/` while a deliberately broken function leaves the corpus unchanged.",
   "errors": []
 }

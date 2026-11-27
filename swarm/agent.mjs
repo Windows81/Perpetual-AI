@@ -158,6 +158,12 @@ const briefing = await getVariable("SWARM_BRIEFING")
 const previous = await getVariable(`SWARM_OUT_${roleUpper}`)
 const rolePrompt = readFileSync(join(process.cwd(), "swarm", "prompts", `${role}.txt`), "utf8").trim()
 const prompt = [
+  "BREAKTHROUGH MANDATE: You are on the cutting edge of a real breakthrough.",
+  "Do not offer generic advice or restate known facts. Produce one novel,",
+  "falsifiable claim with a concrete next action and a pass/fail sign.",
+  "If the shared briefing contains a prior claim, try to disprove or sharpen it",
+  "instead of repeating it.",
+  "",
   rolePrompt,
   "",
   "Shared briefing from the swarm (may describe the previous cycle):",
