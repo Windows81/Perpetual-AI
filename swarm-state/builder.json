@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-27T03:05:58.131Z",
+  "role": "builder",
+  "runId": "local",
+  "route": "kilo",
+  "model": "kilo-auto/free",
+  "ok": true,
+  "text": "Create `gen_test.sh` (contract: `<src.py> <func>` appends one pytest case to `tests/test_<src>.py`; uses `llm` when a key exists, else a deterministic stub):\n\n```bash\ncat > gen_test.sh <<'SH'\n#!/usr/bin/env bash\nset -euo pipefail\nsrc=$1; fn=$2; out=\"tests/test_${src%.py}.py\"\nmkdir -p tests; touch \"$out\"\nbody=$(awk -v f=\"$fn\" '$0 ~ \"def \"f\"\\\\(\" {p=1} p{print} p && /return/ {exit}' \"$src\")\nif command -v llm >/dev/null && llm keys list 2>/dev/null | grep -q openai; then\n  echo \"$body\" | llm -s \"Write one pytest function named test_$fn. Code only.\"\nelse\n  printf 'def test_%s():\\n    from %s import %s\\n    assert %s is not None\\n' \\\n    \"$fn\" \"${src%.py}\" \"$fn\" \"$fn\"\n",
+  "errors": []
+}

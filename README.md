@@ -54,6 +54,31 @@ gh variable list --repo Windows81/Perpetual-AI
 gh variable get SWARM_BRIEFING --repo Windows81/Perpetual-AI
 ```
 
+## Real-time thinking
+
+Each agent streams its answer as it is generated and writes the partial text to
+`SWARM_LIVE_<ROLE>`. A local watcher polls that variable and injects only the new
+characters into the OpenCode session through the dictation bridge:
+
+```sh
+intel live 3
+```
+
+Start it durably with `PERPETUAL_STATE_DIR=/root/.local/state/intel-live perpetual start intel live 3`.
+Stop with `PERPETUAL_STATE_DIR=/root/.local/state/intel-live perpetual stop`.
+
+The final, complete output of each role goes to `SWARM_OUT_<ROLE>`, and `intel
+pull` appends every changed output to a local corpus at
+`/root/usbproj/perpetual/intelligence/corpus.jsonl`. That corpus is the part that
+grows without a fixed ceiling.
+
+## Source-address limits
+
+GitHub-hosted runners draw egress addresses from a large pool that now includes
+IPv6 ranges. Rotating source addresses to defeat a provider's per-IP quota would
+risk losing these keyless endpoints altogether, so the swarm stays within the
+documented quotas and spreads work across the routes already in `agent.mjs`.
+
 ## Always-on VM option
 
 For a continuous process instead of nine-minute cycles, deploy `agent.mjs` or

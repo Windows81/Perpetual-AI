@@ -1,6 +1,6 @@
-// One swarm agent. Reads its role prompt, consults shared memory stored in
-// repository variables (no commits), calls the keyless model chain, and writes
-// its result back to shared memory and the Actions run summary.
+// One swarm agent. Streams model output as it is generated, publishing partial
+// text to SWARM_LIVE_<ROLE> so a local watcher can inject it into the session in
+// near real time. Final output goes to SWARM_OUT_<ROLE>. No commits.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
@@ -51,7 +51,7 @@ async function setVariable(name, value) {
   try {
     let response = await fetch(
       `https://api.github.com/repos/${repo}/actions/variables/${name}`,
-      { method: "PUT", headers: apiHeaders, body, signal: AbortSignal.timeout(15000) },
+      { method: "PATCH", headers: apiHeaders, body, signal: AbortSignal.timeout(15000) },
     )
     if (response.status === 404) {
       response = await fetch(
@@ -65,37 +65,95 @@ async function setVariable(name, value) {
   }
 }
 
-async function ask(prompt) {
-  const errors = []
-  for (const route of ROUTES) {
-    try {
-      const response = await fetch(`${route.base}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
-        body: JSON.stringify({
-          model: route.model,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 900,
-          temperature: 0.7,
-        }),
-        signal: AbortSignal.timeout(45000),
-      })
-      if (!response.ok) throw new Error(`${route.label}: HTTP ${response.status}`)
-      const data = await response.json()
-      if (data?.error) throw new Error(`${route.label}: error`)
-      const text = String(data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "").trim()
-      if (!text || /internal guardrails|unable to answer question/i.test(text)) {
-        throw new Error(`${route.label}: empty or refused`)
+const bad = (text) =>
+  text.length === 0 || /internal guardrails|unable to answer question/i.test(text)
+
+async function streamFrom(route, prompt, liveName) {
+  const response = await fetch(`${route.base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+    body: JSON.stringify({
+      model: route.model,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 900,
+      temperature: 0.7,
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(90000),
+  })
+  if (!response.ok) throw new Error(`${route.label}: HTTP ${response.status}`)
+  if (!response.body) throw new Error(`${route.label}: no stream body`)
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let text = ""
+  let lastPublish = Date.now()
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n")
+    const frames = buffer.split("\n\n")
+    buffer = frames.pop() ?? ""
+    for (const frame of frames) {
+      const payload = frame.split("\n")
+        .filter((part) => part.startsWith("data:"))
+        .map((part) => part.slice(5).trim())
+        .join("\n")
+      if (!payload || payload === "[DONE]") continue
+      let data
+      try {
+        data = JSON.parse(payload.split("\n")[0])
+      } catch {
+        continue
       }
-      return { text, route: route.label, model: route.model }
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error))
+      if (data?.error) throw new Error(`${route.label}: stream error`)
+      const delta = data?.choices?.[0]?.delta?.content
+      if (!delta) continue
+      text += String(delta)
+      const now = Date.now()
+      if (now - lastPublish >= 2000) {
+        await setVariable(liveName, text.slice(-4000))
+        lastPublish = now
+      }
     }
   }
-  return { text: "", route: "none", model: "none", errors }
+  const tail = buffer.split("\n").filter((part) => part.startsWith("data:"))
+  if (tail.length) {
+    try {
+      const data = JSON.parse(tail.map((part) => part.slice(5).trim()).join("\n").split("\n")[0])
+      const delta = data?.choices?.[0]?.delta?.content
+      if (delta) text += String(delta)
+    } catch { /* ignore a truncated final frame */ }
+  }
+  if (bad(text)) throw new Error(`${route.label}: empty or refused`)
+  return text
+}
+
+async function askOnce(route, prompt) {
+  const response = await fetch(`${route.base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+    body: JSON.stringify({
+      model: route.model,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 900,
+      temperature: 0.7,
+    }),
+    signal: AbortSignal.timeout(45000),
+  })
+  if (!response.ok) throw new Error(`${route.label}: HTTP ${response.status}`)
+  const data = await response.json()
+  if (data?.error) throw new Error(`${route.label}: error`)
+  const text = String(data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "").trim()
+  if (bad(text)) throw new Error(`${route.label}: empty or refused`)
+  return text
 }
 
 const roleUpper = role.toUpperCase()
+const liveName = `SWARM_LIVE_${roleUpper}`
+await setVariable(liveName, "")
 const briefing = await getVariable("SWARM_BRIEFING")
 const previous = await getVariable(`SWARM_OUT_${roleUpper}`)
 const rolePrompt = readFileSync(join(process.cwd(), "swarm", "prompts", `${role}.txt`), "utf8").trim()
@@ -111,35 +169,59 @@ const prompt = [
   "Answer directly and keep it under 200 words.",
 ].join("\n")
 
-const answer = await ask(prompt)
+let answer = null
+const errors = []
+for (const route of ROUTES) {
+  try {
+    const text = await streamFrom(route, prompt, liveName)
+    answer = { text, route: route.label, model: route.model }
+    break
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error))
+  }
+}
+if (!answer) {
+  // Fallback for upstreams that only answer in non-streaming mode.
+  for (const route of ROUTES) {
+    try {
+      const text = await askOnce(route, prompt)
+      answer = { text, route: route.label, model: route.model }
+      await setVariable(liveName, text)
+      break
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+  }
+}
+
 const record = {
   at: new Date().toISOString(),
   role,
   runId: process.env.GITHUB_RUN_ID ?? "local",
-  route: answer.route,
-  model: answer.model,
-  ok: Boolean(answer.text),
-  text: answer.text,
-  errors: answer.errors ?? [],
+  route: answer?.route ?? "none",
+  model: answer?.model ?? "none",
+  ok: Boolean(answer?.text),
+  text: answer?.text ?? "",
+  errors: answer ? [] : errors,
 }
 
 const stateDir = join(process.cwd(), "swarm-state")
 mkdirSync(stateDir, { recursive: true })
 writeFileSync(join(stateDir, `${role}.json`), JSON.stringify(record, null, 2) + "\n")
-
-const markdown = `### ${role} (${answer.route})\n\n${answer.text || "No answer; all routes failed."}\n`
+const markdown = `### ${role} (${record.route})\n\n${answer?.text || "No answer; all routes failed."}\n`
 writeFileSync(join(stateDir, `${role}.md`), markdown)
 const summaryPath = process.env.GITHUB_STEP_SUMMARY
 if (summaryPath) writeFileSync(summaryPath, `\n## Swarm agent: ${role}\n\n${markdown}`, { flag: "a" })
-if (answer.text) {
+
+if (answer?.text) {
   const stored = await setVariable(`SWARM_OUT_${roleUpper}`, answer.text)
   if (!stored) console.warn(`[swarm:${role}] could not store SWARM_OUT_${roleUpper}`)
 }
 
-if (role === "scribe" && answer.text) {
+if (role === "scribe" && answer?.text) {
   const outputs = await Promise.all(ROLES.map((name) => getVariable(`SWARM_OUT_${name.toUpperCase()}`)))
   const digest = ROLES.map((name, index) => `${name}: ${outputs[index] || "(none)"}`).join("\n")
   await setVariable("SWARM_BRIEFING", `Latest cycle:\n${digest}`.slice(0, 4000))
 }
 
-console.log(`[swarm:${role}] ${record.at} ok=${record.ok} route=${answer.route}`)
+console.log(`[swarm:${role}] ${record.at} ok=${record.ok} route=${record.route}`)
