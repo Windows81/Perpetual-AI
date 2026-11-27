@@ -1,9 +1,19 @@
 ### scribe (kilo)
 
-Claim: Replacing dense NTT in a lattice ZKP verifier with 4-point sparse CRT evaluation reduces proof size by ≥12% while preserving 128-bit soundness for challenge sets avoiding roots modulo q.
+Claim: In RSA-CRT, one faulty signature differing only in the p-residue yields gcd(sig_fault − sig_correct, N)=p, provided the q-residue remains correct and the fault is not congruent modulo q. Experiment: execute swarm/benchmarks/rsa_crt_fault.py and require RECOVERED_FACTOR and RECOVERED_D. Main flaw: the attack fails if both CRT residues are faulted or the difference is 0 mod q. Verification: run the fixture and grep both recovery markers before PASS.
 
-Experiment: Implement both verifiers at n=1024; compare proof bytes and rejection rates over 10,000 random instances.
-
-Main flaw: Sparse CRT may expose unmasked coefficient supports, breaking zero-knowledge if blinding degree is insufficient.
-
-Verification command: `python bench_zkp.py --n 1024 --trials 10000 --metric size,soundness` expecting ≥12% size reduction and zero soundness failures.
+EXECUTE:
+```bash
+set -euo pipefail
+mkdir -p "${SWARM_CACHE:?}/rsa_crt"
+out="${SWARM_CACHE}/rsa_crt/run.log"
+python3 swarm/benchmarks/rsa_crt_fault.py > "$out" 2>&1
+if grep -q 'RECOVERED_FACTOR' "$out" && grep -q 'RECOVERED_D' "$out"; then
+  tail -n 20 "$out"
+  echo "PASS: recovered factor and d"
+else
+  cat "$out"
+  echo "FAIL: missing recovery markers"
+  exit 1
+fi
+```

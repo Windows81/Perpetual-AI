@@ -1,3 +1,19 @@
 ### critic (kilo)
 
-Claim: A single-bit fault in AES-128 round 9 reduces the key space below 2^32 using fewer than 1000 faulted ciphertexts. Flaw: this conflates a byte fault with a bit fault; published differential fault analysis already handles byte faults, while a random one-bit flip often yields weak or unusable differentials and may require key-dependent fault placement. Correction: test only random single-bit flips in the round-9 state, with public plaintext/ciphertext pairs and no key-guided faulting. Next action: simulate 10,000 random bit flips, run differential key filtering, and record the median surviving key count. Pass: median below 2^32. Fail: median at or above 2^32, or no measurable reduction. This tests the harder bit-level fault model instead of reusing byte-fault results.
+The decisive flaw is conflating the Bellcore fault primitive with key recovery: the fault gives a prime factor from a faulty CRT signature and a valid signature, while recovering `d` is only a deterministic post-processing step once `p,q` are known. The honest correction is to report `RECOVERED_FACTOR` as the attack result and `RECOVERED_D` as derived from factorization, not as an additional fault capability.
+
+EXECUTE:
+```bash
+set -euo pipefail
+f="swarm/benchmarks/rsa_crt_fault.py"
+test -f "$f" || { echo "FAIL: missing $f"; exit 1; }
+out="$(python3 "$f" 2>&1)" || { printf '%s\n' "$out"; echo "FAIL: fixture exited nonzero"; exit 1; }
+printf '%s\n' "$out"
+if printf '%s\n' "$out" | grep -q 'RECOVERED_FACTOR' && \
+   printf '%s\n' "$out" | grep -q 'RECOVERED_D'; then
+  echo "PASS: RSA-CRT Bellcore factor recovery verified"
+else
+  echo "FAIL: required recovery markers missing"
+  exit 1
+fi
+```

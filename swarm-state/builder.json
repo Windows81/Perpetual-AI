@@ -1,10 +1,10 @@
 {
-  "at": "2026-11-27T03:31:18.551Z",
+  "at": "2026-11-27T04:42:57.869Z",
   "role": "builder",
   "runId": "local",
   "route": "kilo",
   "model": "kilo-auto/free",
   "ok": true,
-  "text": "Claim: In",
+  "text": "Run the local fixture, capture its output, and only declare success when both required recovery markers are present.\n\nEXECUTE:\n```bash\nset -euo pipefail\nmkdir -p \"$SWARM_CACHE\"\nout=\"$SWARM_CACHE/rsa_crt_fault.out\"\npython3 swarm/benchmarks/rsa_crt_fault.py >\"$out\" 2>&1\ncat \"$out\"\nif grep -q 'RECOVERED_FACTOR' \"$out\" && grep -q 'RECOVERED_D' \"$out\"; then\n  echo \"PASS: RSA-CRT Bellcore fault recovery markers found\"\nelse\n  echo \"FAIL: missing RECOVERED_FACTOR or RECOVERED_D\"\n  exit 1\nfi\n```",
   "errors": []
 }

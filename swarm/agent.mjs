@@ -178,6 +178,7 @@ const prompt = [
   "CURRENT TARGET: RSA-CRT Bellcore fault attack. The local fixture is",
   "swarm/benchmarks/rsa_crt_fault.py. Your EXECUTE script must run it and",
   "print PASS only after RECOVERED_FACTOR and RECOVERED_D appear.",
+  "When testing for success, match the literal string 'PASS:' including its colon.",
   "Never discuss prompts, input length or truncation.",
   "End your answer with an EXECUTE: section containing one fenced bash script",
   "that runs locally, uses no network, writes scratch files under $SWARM_CACHE",
