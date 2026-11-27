@@ -17,7 +17,10 @@ fallback in case the chain is interrupted.
   event starts a run; each run dispatches the next one. The `cron` entry is a
   fallback that starts a new chain if the old one dies.
 - `control/stop` — create this file to halt the fast chain.
-- `state/` — the proof that the agent ran. The log is the durable record.
+- `state/` — written inside each run and shown in the run summary. It is not
+  committed, so the history stays clean.
+- `keepalive.txt` — the only file the agent commits, once every 53 days. That
+  single commit keeps the fallback schedule registered.
 
 ## Why it does not stop
 
@@ -27,7 +30,9 @@ fallback in case the chain is interrupted.
    depend on GitHub's delayed cron queue.
 4. A failed model call is recorded, not fatal. The agent always exits with
    status 0, so the next run is still queued.
-5. The `concurrency` group prevents two runs from committing at the same time.
+5. The `concurrency` group prevents two runs from overlapping.
+6. Heartbeats go to the Actions run summary instead of the commit history. Only
+   the 53-day keepalive writes a commit.
 
 ## Verify a run
 
