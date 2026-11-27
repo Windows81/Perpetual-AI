@@ -1,0 +1,3 @@
+This file stops the older single-agent chain in perpetual.yml. The AI Swarm
+workflow in swarm.yml is the active runtime. Delete this file only if you want
+to run both.

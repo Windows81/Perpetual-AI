@@ -1,58 +1,61 @@
-# Perpetual AI
+# Perpetual AI Swarm
 
-An AI agent that runs without the phone. A GitHub Actions run performs one
-inference, writes a heartbeat to this repository, waits about nine minutes,
-then queues the next run through the GitHub API. The chain repeats on GitHub's
-servers, so the agent keeps working while the phone is off. An hourly cron is a
-fallback in case the chain is interrupted.
+Five AI agents run in the cloud on GitHub's servers, outside the phone. Every
+nine minutes a cycle starts: the agents think in parallel, store their results
+in repository variables, and the tick job queues the next cycle. Nothing is
+committed except one keepalive file every 53 days.
 
-## What is where
+The older single-agent workflow in `perpetual.yml` is stopped by `control/stop`.
+Delete that file only if you want both runtimes.
 
-- `agent.mjs` — the agent. It tries ten keyless model routes in order and stops
-  at the first reply. It writes `state/latest.json` and appends to
-  `state/log.jsonl`.
-- `task.txt` — the prompt the agent answers each run. Edit this file in the
-  repository to change what the agent does.
-- `.github/workflows/perpetual.yml` — the cloud scheduler. A `workflow_dispatch`
-  event starts a run; each run dispatches the next one. The `cron` entry is a
-  fallback that starts a new chain if the old one dies.
-- `control/stop` — create this file to halt the fast chain.
-- `state/` — written inside each run and shown in the run summary. It is not
-  committed, so the history stays clean.
-- `keepalive.txt` — the only file the agent commits, once every 53 days. That
-  single commit keeps the fallback schedule registered.
+## The five roles
 
-## Why it does not stop
+- `scout` — picks one high-leverage idea for the developer.
+- `builder` — turns the idea into a small executable implementation sketch.
+- `critic` — finds the likeliest failure and the smallest fix.
+- `tester` — gives one command with a clear pass and fail sign.
+- `scribe` — compresses the cycle into the next shared briefing.
 
-1. GitHub owns the computer, so the phone is never involved.
-2. Public repositories have no monthly minute limit on GitHub Actions.
-3. Each run calls the GitHub API to queue the next run, so reliability does not
-   depend on GitHub's delayed cron queue.
-4. A failed model call is recorded, not fatal. The agent always exits with
-   status 0, so the next run is still queued.
-5. The `concurrency` group prevents two runs from overlapping.
-6. Heartbeats go to the Actions run summary instead of the commit history. Only
-   the 53-day keepalive writes a commit.
+Each role calls a chain of free, keyless model endpoints and stops at the first
+answer. A failed call is recorded but never stops the cycle.
 
-## Verify a run
+## Shared memory without commits
+
+`swarm/agent.mjs` reads `SWARM_BRIEFING` and its own previous output from GitHub
+Actions variables, then writes its answer to `SWARM_OUT_<ROLE>`. The scribe
+rewrites `SWARM_BRIEFING` from all five outputs. Variables are plain API
+storage, so the commit history stays clean.
+
+Read the current briefing with:
 
 ```sh
-gh workflow run perpetual.yml --repo Windows81/Perpetual-AI
-gh run list --repo Windows81/Perpetual-AI --workflow perpetual.yml --limit 3
-gh api repos/Windows81/Perpetual-AI/contents/state/latest.json --jq .content | base64 -d
+gh variable get SWARM_BRIEFING --repo Windows81/Perpetual-AI
 ```
 
-The last command prints the heartbeat. `ok: true` means a model answered; `ok:
-false` means every free route refused and the errors are listed.
+Edit `swarm/prompts/<role>.txt` in the repository to change what an agent does.
+The next cycle picks up the change automatically.
 
-## Limits and upgrade path
+## Why it keeps running
 
-The dispatch chain needs the `PERPETUAL_TOKEN` repository secret, which holds a
-token with the `workflow` scope. If that secret is removed, the chain stops and
-the hourly fallback keeps the agent alive at a slower pace. Scheduled workflows
-are also disabled after 60 days of repository inactivity; each heartbeat commit
-counts as activity, so an actively logging agent stays enabled.
+1. `tick` dispatches `swarm.yml` through `PERPETUAL_TOKEN`, a token with the
+   `workflow` scope, so reliability does not depend on GitHub's cron queue.
+2. An hourly cron is a fallback that restarts the chain if it breaks.
+3. GitHub disables cron in public repositories after 60 days of inactivity.
+   Only commits count as activity, so `keepalive.txt` is committed once every
+   53 days, authored by the model that wrote the code.
+4. The `concurrency` group prevents two cycles from overlapping.
 
-For a truly continuous process, deploy the same `agent.mjs` on an always-free
-cloud VM under `systemd` with `Restart=always`. The local supervisor at
-`../perpetual` and the unit in `../perpetual.service` are the pieces for that.
+## Verify
+
+```sh
+gh workflow list --repo Windows81/Perpetual-AI
+gh run list --repo Windows81/Perpetual-AI --workflow 'AI Swarm' --limit 3
+gh variable list --repo Windows81/Perpetual-AI
+gh variable get SWARM_BRIEFING --repo Windows81/Perpetual-AI
+```
+
+## Always-on VM option
+
+For a continuous process instead of nine-minute cycles, deploy `agent.mjs` or
+`swarm/agent.mjs` under `systemd` with `Restart=always`. The unit, Dockerfile
+and Kubernetes manifest live in `/root/usbproj/perpetual/`.
